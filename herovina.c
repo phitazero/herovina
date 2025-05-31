@@ -2,15 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <conio.h>
 #include <string.h>
-
-/*
-Отче наш, Иже еси на небесех!
-Да святится имя Твое, да приидет Царствие Твое,
-Да будет воля Твоя, яко на небеси и на земли.
-Хлеб наш насущный даждь нам днесь;
-*/ 
+#include <termios.h>
+#include <unistd.h>
 
 #define LINES_PER_SCREEN 16
 
@@ -22,6 +16,21 @@
 #define RESET "\033[0m"
 #define YELLOW "\033[33m"
 #define LYELLOW "\033[93m"
+
+int getch() {
+    struct termios oldt, newt;
+    int ch;
+
+    tcgetattr(STDIN_FILENO, &oldt);         
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);       
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    ch = getchar();
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt); 
+    return ch;
+}
 
 void renderLine(unsigned int lineAddress, unsigned int selectedAddress, int editMode, unsigned char* buffer, unsigned int fileSize) {
     printf("[%s%08X%s]  ", MAGENTA, lineAddress, RESET);
@@ -54,7 +63,7 @@ void renderLine(unsigned int lineAddress, unsigned int selectedAddress, int edit
 }
 
 void renderScreen (unsigned int screenAddress, unsigned int selectedAddress, int editMode, unsigned char* buffer, unsigned int fileSize, char* filename) {
-    system("cls");
+    system("clear");
 
     printf("            %s0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F%s\n", MAGENTA, RESET);
 
@@ -226,7 +235,7 @@ int main(int argc, char* argv[]) {
                 buffer[selectedAddress] = getch();
                 break;
             case 'H':
-                system("cls");
+                system("clear");
                 printHelp();
                 printf("\nPress any key to continue.");
                 getch();
