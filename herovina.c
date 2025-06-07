@@ -204,7 +204,7 @@ int main(int argc, char* argv[]) {
                     waitForEnter();
                 }
             } else {
-                printf("\n%sUnknown command. Press Enter to continue.%s", LRED, RESET);
+                printf("\n%sUnknown command. Run with --help flag for help.\nPress Enter to continue.%s", LRED, RESET);
                 waitForEnter();
             }
         } 
