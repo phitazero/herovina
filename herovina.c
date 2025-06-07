@@ -82,7 +82,7 @@ void renderScreen (unsigned int screenAddress, unsigned int selectedAddress, int
 
 void waitForEnter() {
     while (1) {
-        if (getch() == 13) break; // if getch() == enter
+        if (getch() == 0xA) break; // if getch() == enter
     }
 }
 
