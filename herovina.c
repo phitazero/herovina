@@ -104,7 +104,7 @@ long long inputInt() { // normally returns values 0 - 2^32-1 and has -1 as an er
 	unsigned int value = 0;
 	while (1) {
 		char input = getch();
-		if (input == 13) break; // enter
+		if (input == '\n') break; // enter
 		value *= 16;
 		char output;
 		if ('a' <= input && input <= 'f') output = input - 'a' + 'A';
