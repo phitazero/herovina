@@ -278,5 +278,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	fclose(fptr);
+	printf("\n");
 	return 0;
 }
