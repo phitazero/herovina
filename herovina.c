@@ -216,10 +216,10 @@ int main(int argc, char* argv[]) {
 				if (selectedAddress + 16 < fileSize) selectedAddress += 16;
 				break;
 			case 'a':
-				if (selectedAddress % 16 != 0) selectedAddress--;
+				if (selectedAddress > 0) selectedAddress--;
 				break;
 			case 'd':
-				if (selectedAddress + 1 < fileSize && selectedAddress % 16 != 15) selectedAddress++;
+				if (selectedAddress + 1 < fileSize) selectedAddress++;
 				break;
 			case 'e':
 				renderScreen(screenAddress, selectedAddress, 1, buffer, fileSize, filename);
