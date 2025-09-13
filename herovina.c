@@ -129,6 +129,7 @@ void printHelp() {
 	printf(":g <address> - goto <address>\n");
 	printf(":q - quit\n");
 	printf(":w - save to file\n");
+	printf(":r - reload file\n");
 }
 
 int main(int argc, char* argv[]) {
@@ -203,6 +204,27 @@ int main(int argc, char* argv[]) {
 					}
 					waitForEnter();
 				}
+			} else if (command == 'r') {
+				fseek(fptr, 0, SEEK_END);
+				fileSize = ftell(fptr);
+				fseek(fptr, 0, SEEK_SET);
+
+				buffer = realloc(buffer, fileSize);
+
+				if (buffer == NULL) {
+					printf("%sError while allocating memory.%s\n", LRED, RESET);
+					fclose(fptr);
+					return 1;
+				}
+
+				fread(buffer, 1, fileSize, fptr);
+
+				// idk why it's required, prints a r symbol otherwise, messing up the TUI
+				fflush(stdout);
+
+				if (selectedAddress > fileSize - 1)
+					selectedAddress = fileSize - 1;
+
 			} else {
 				printf("\n%sUnknown command. Run with --help flag for help.\nPress Enter to continue.%s", LRED, RESET);
 				waitForEnter();
