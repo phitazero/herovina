@@ -42,7 +42,7 @@ typedef struct {
 	FILE* fptr;
 } Context;
 
-void renderLine(Context* ctx, unsigned int lineAddress, uint8_t editMode) {
+void renderLine(Context* ctx, uint64_t lineAddress, uint8_t editMode) {
 	printf("[%s%08X%s]  ", MAGENTA, lineAddress, RESET);
 
 	char* selectionColors[] = {LMAGENTA, RED, YELLOW, LRED, LYELLOW};
@@ -50,7 +50,7 @@ void renderLine(Context* ctx, unsigned int lineAddress, uint8_t editMode) {
 
 	for (int offset = 0; offset < 16; offset++) {
 		if (lineAddress + offset < ctx->fileSize) {
-			unsigned char symbol = ctx->buffer[lineAddress + offset];
+			uint8_t symbol = ctx->buffer[lineAddress + offset];
 			if (lineAddress + offset == ctx->selectedAddress) printf(selectionColor);
 			printf("%02X%s ", symbol, RESET);
 		} else {
@@ -61,7 +61,7 @@ void renderLine(Context* ctx, unsigned int lineAddress, uint8_t editMode) {
 	printf(" | ");
 
 	for (int offset = 0; offset < 16; offset++) {
-		unsigned char symbol = ctx->buffer[lineAddress + offset];
+		uint8_t symbol = ctx->buffer[lineAddress + offset];
 		if (lineAddress + offset < ctx->fileSize && symbol >= 32 && symbol <= 126) {
 			if (lineAddress + offset == ctx->selectedAddress) printf(selectionColor);
 			printf("%c%s", symbol, RESET);
@@ -77,7 +77,7 @@ void renderScreen (Context* ctx, uint8_t editMode) {
 
 	printf("            %s0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F%s\n", MAGENTA, RESET);
 
-	unsigned int lineAddress;
+	uint64_t lineAddress;
 	for (int line = 0; line < LINES_PER_SCREEN && 16 * line + ctx->screenAddress < ctx->fileSize; line++) {
 		lineAddress = ctx->screenAddress + 16 * line;
 		renderLine(ctx, lineAddress, editMode);
@@ -96,8 +96,8 @@ void waitForEnter() {
 	}
 }
 
-int inputByte() { // normally returns values 0-255 and has -1 as an error status code
-	unsigned char value = 0;
+int16_t inputByte() { // normally returns values 0-255 and has -1 as an error status code
+	uint8_t value = 0;
 	for (int i = 0; i < 2; i++) {
 		char input = getch();
 		value *= 16;
@@ -110,8 +110,8 @@ int inputByte() { // normally returns values 0-255 and has -1 as an error status
 	return value;
 }
 
-long long inputInt() { // normally returns values 0 - 2^32-1 and has -1 as an error status code
-	unsigned int value = 0;
+int64_t inputInt() { // normally returns values 0 - 2^32-1 and has -1 as an error status code
+	uint32_t value = 0;
 	while (1) {
 		char input = getch();
 		if (input == '\n') break; // enter
