@@ -40,6 +40,7 @@ typedef struct {
 	char* buffer;
 	char* filename;
 	FILE* fptr;
+	uint8_t ascii_panel;
 } Context;
 
 void renderLine(Context* ctx, uint64_t lineAddress, uint8_t editMode) {
@@ -58,17 +59,20 @@ void renderLine(Context* ctx, uint64_t lineAddress, uint8_t editMode) {
 		}
 	}
 
-	printf(" | ");
+	if (ctx->ascii_panel) {
+		printf(" | ");
 
-	for (int offset = 0; offset < 16; offset++) {
-		uint8_t symbol = ctx->buffer[lineAddress + offset];
-		if (lineAddress + offset < ctx->fileSize && symbol >= 32 && symbol <= 126) {
-			if (lineAddress + offset == ctx->selectedAddress) printf(selectionColor);
-			printf("%c%s", symbol, RESET);
-		} else {
-			printf("%s.%s", LBLACK, RESET);
+		for (int offset = 0; offset < 16; offset++) {
+			uint8_t symbol = ctx->buffer[lineAddress + offset];
+			if (lineAddress + offset < ctx->fileSize && symbol >= 32 && symbol <= 126) {
+				if (lineAddress + offset == ctx->selectedAddress) printf(selectionColor);
+				printf("%c%s", symbol, RESET);
+			} else {
+				printf("%s.%s", LBLACK, RESET);
+			}
 		}
 	}
+
 	printf("\n");
 }
 
@@ -140,6 +144,7 @@ void printHelp() {
 	printf(":q - quit\n");
 	printf(":w - save to file\n");
 	printf(":r - reload file\n");
+	printf(":s - toggle ASCII panel\n")
 }
 
 int main(int argc, char* argv[]) {
@@ -154,6 +159,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	Context ctx;
+	ctx.ascii_panel = 1;
 
 	ctx.filename = argv[1];
 	ctx.fptr = fopen(ctx.filename, "r+b");
@@ -237,6 +243,11 @@ int main(int argc, char* argv[]) {
 				if (ctx.selectedAddress > ctx.fileSize - 1)
 					ctx.selectedAddress = ctx.fileSize - 1;
 
+			} else if (command == 's') {
+				ctx.ascii_panel ^= 1;
+
+				// idk why it's required, prints an sd symbol otherwise, messing up the TUI
+				fflush(stdout);
 			} else {
 				printf("\n%sUnknown command. Run with --help flag for help.\nPress Enter to continue.%s", LRED, RESET);
 				waitForEnter();
