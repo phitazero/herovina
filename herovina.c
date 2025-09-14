@@ -5,6 +5,7 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #define LINES_PER_SCREEN 16
 
@@ -32,16 +33,25 @@ int getch() {
 	return ch;
 }
 
-void renderLine(unsigned int lineAddress, unsigned int selectedAddress, int editMode, unsigned char* buffer, unsigned int fileSize) {
+typedef struct {
+	uint64_t fileSize;
+	uint64_t selectedAddress;
+	uint64_t screenAddress;
+	char* buffer;
+	char* filename;
+	FILE* fptr;
+} Context;
+
+void renderLine(Context* ctx, unsigned int lineAddress, uint8_t editMode) {
 	printf("[%s%08X%s]  ", MAGENTA, lineAddress, RESET);
 
 	char* selectionColors[] = {LMAGENTA, RED, YELLOW, LRED, LYELLOW};
 	char* selectionColor = selectionColors[editMode];
 
 	for (int offset = 0; offset < 16; offset++) {
-		if (lineAddress + offset < fileSize) {
-			unsigned char symbol = buffer[lineAddress + offset];
-			if (lineAddress + offset == selectedAddress) printf(selectionColor);
+		if (lineAddress + offset < ctx->fileSize) {
+			unsigned char symbol = ctx->buffer[lineAddress + offset];
+			if (lineAddress + offset == ctx->selectedAddress) printf(selectionColor);
 			printf("%02X%s ", symbol, RESET);
 		} else {
 			printf("   ");
@@ -51,9 +61,9 @@ void renderLine(unsigned int lineAddress, unsigned int selectedAddress, int edit
 	printf(" | ");
 
 	for (int offset = 0; offset < 16; offset++) {
-		unsigned char symbol = buffer[lineAddress + offset];
-		if (lineAddress + offset < fileSize && symbol >= 32 && symbol <= 126) {
-			if (lineAddress + offset == selectedAddress) printf(selectionColor);
+		unsigned char symbol = ctx->buffer[lineAddress + offset];
+		if (lineAddress + offset < ctx->fileSize && symbol >= 32 && symbol <= 126) {
+			if (lineAddress + offset == ctx->selectedAddress) printf(selectionColor);
 			printf("%c%s", symbol, RESET);
 		} else {
 			printf("%s.%s", LBLACK, RESET);
@@ -62,21 +72,21 @@ void renderLine(unsigned int lineAddress, unsigned int selectedAddress, int edit
 	printf("\n");
 }
 
-void renderScreen (unsigned int screenAddress, unsigned int selectedAddress, int editMode, unsigned char* buffer, unsigned int fileSize, char* filename) {
+void renderScreen (Context* ctx, uint8_t editMode) {
 	system("clear");
 
 	printf("            %s0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F%s\n", MAGENTA, RESET);
 
 	unsigned int lineAddress;
-	for (int line = 0; line < LINES_PER_SCREEN && 16 * line + screenAddress < fileSize; line++) {
-		lineAddress = screenAddress + 16 * line;
-		renderLine(lineAddress, selectedAddress, editMode, buffer, fileSize);
+	for (int line = 0; line < LINES_PER_SCREEN && 16 * line + ctx->screenAddress < ctx->fileSize; line++) {
+		lineAddress = ctx->screenAddress + 16 * line;
+		renderLine(ctx, lineAddress, editMode);
 	}
 
-	printf("\n[%s%08X%s]", LMAGENTA, selectedAddress, RESET);
-	printf("  (%s%s%s)", MAGENTA, filename, RESET);
-	printf("  %d bytes", fileSize);
-	printf(" (%s00000000%s - %s%08X%s)", LMAGENTA, RESET, LMAGENTA, fileSize - 1, RESET);
+	printf("\n[%s%08X%s]", LMAGENTA, ctx->selectedAddress, RESET);
+	printf("  (%s%s%s)", MAGENTA, ctx->filename, RESET);
+	printf("  %d bytes", ctx->fileSize);
+	printf(" (%s00000000%s - %s%08X%s)", LMAGENTA, RESET, LMAGENTA, ctx->fileSize - 1, RESET);
 	printf("\n");
 }
 
@@ -143,33 +153,35 @@ int main(int argc, char* argv[]) {
 		return 0;
 	}
 
-	char* filename = argv[1];
-	FILE* fptr = fopen(filename, "r+b");
+	Context ctx;
 
-	if (fptr == NULL) {
-		printf("%sError while opening file '%s'.%s\n", LRED, filename, RESET);
-		return 1;
-	} 
+	ctx.filename = argv[1];
+	ctx.fptr = fopen(ctx.filename, "r+b");
 
-	fseek(fptr, 0, SEEK_END);
-	unsigned int fileSize = ftell(fptr);
-	fseek(fptr, 0, SEEK_SET);
-
-	unsigned char* buffer = malloc(fileSize);
-
-	if (buffer == NULL) {
-		printf("%sError while allocating memory.%s\n", LRED, RESET);
-		fclose(fptr);
+	if (ctx.fptr == NULL) {
+		printf("%sError while opening file '%s'.%s\n", LRED, ctx.filename, RESET);
 		return 1;
 	}
 
-	fread(buffer, 1, fileSize, fptr);
+	fseek(ctx.fptr, 0, SEEK_END);
+	ctx.fileSize = ftell(ctx.fptr);
+	fseek(ctx.fptr, 0, SEEK_SET);
 
-	unsigned int selectedAddress = 0x0;
-	unsigned int screenAddress = 0x0;
+	ctx.buffer = malloc(ctx.fileSize);
+
+	if (ctx.buffer == NULL) {
+		printf("%sError while allocating memory.%s\n", LRED, RESET);
+		fclose(ctx.fptr);
+		return 1;
+	}
+
+	fread(ctx.buffer, 1, ctx.fileSize, ctx.fptr);
+
+	ctx.selectedAddress = 0x0;
+	ctx.screenAddress = 0x0;
 
 	while (1) {
-		renderScreen(screenAddress, selectedAddress, 0, buffer, fileSize, filename);
+		renderScreen(&ctx, 0);
 		char input = getch();
 		if (input == ':') {
 			printf(":");
@@ -183,8 +195,8 @@ int main(int argc, char* argv[]) {
 			} else if (command == 'g') {
 				printf(" %s", LMAGENTA);
 				long long address = inputInt();
-				if (address < fileSize && address != -1) selectedAddress = address;
-				else if (address >= fileSize) {
+				if (address < ctx.fileSize && address != -1) ctx.selectedAddress = address;
+				else if (address >= ctx.fileSize) {
 					printf("\n%sOut of file bounds. Press Enter to continue.%s", LRED, RESET);
 					waitForEnter();
 				} else {
@@ -195,9 +207,9 @@ int main(int argc, char* argv[]) {
 				printf("\nAre you sure you want to save the file? (y/n)");
 				char confirmation = getch();
 				if (confirmation == 'y') {
-					fseek(fptr, 0, SEEK_SET);
-					size_t bytesWritten = fwrite(buffer, 1, fileSize, fptr);
-					if (bytesWritten == fileSize) {
+					fseek(ctx.fptr, 0, SEEK_SET);
+					size_t bytesWritten = fwrite(ctx.buffer, 1, ctx.fileSize, ctx.fptr);
+					if (bytesWritten == ctx.fileSize) {
 						printf("\nSuccessfully wrote to file. Press Enter to continue.");
 					} else {
 						printf("\n%sError while writing to file. Press Enter to continue.%s", LRED, RESET);
@@ -205,25 +217,25 @@ int main(int argc, char* argv[]) {
 					waitForEnter();
 				}
 			} else if (command == 'r') {
-				fseek(fptr, 0, SEEK_END);
-				fileSize = ftell(fptr);
-				fseek(fptr, 0, SEEK_SET);
+				fseek(ctx.fptr, 0, SEEK_END);
+				ctx.fileSize = ftell(ctx.fptr);
+				fseek(ctx.fptr, 0, SEEK_SET);
 
-				buffer = realloc(buffer, fileSize);
+				ctx.buffer = realloc(ctx.buffer, ctx.fileSize);
 
-				if (buffer == NULL) {
+				if (ctx.buffer == NULL) {
 					printf("%sError while allocating memory.%s\n", LRED, RESET);
-					fclose(fptr);
+					fclose(ctx.fptr);
 					return 1;
 				}
 
-				fread(buffer, 1, fileSize, fptr);
+				fread(ctx.buffer, 1, ctx.fileSize, ctx.fptr);
 
 				// idk why it's required, prints a r symbol otherwise, messing up the TUI
 				fflush(stdout);
 
-				if (selectedAddress > fileSize - 1)
-					selectedAddress = fileSize - 1;
+				if (ctx.selectedAddress > ctx.fileSize - 1)
+					ctx.selectedAddress = ctx.fileSize - 1;
 
 			} else {
 				printf("\n%sUnknown command. Run with --help flag for help.\nPress Enter to continue.%s", LRED, RESET);
@@ -232,29 +244,29 @@ int main(int argc, char* argv[]) {
 		} 
 		else switch (input) {
 			case 'w':
-				if (selectedAddress >= 16) selectedAddress -= 16;
+				if (ctx.selectedAddress >= 16) ctx.selectedAddress -= 16;
 				break;
 			case 's':
-				if (selectedAddress + 16 < fileSize) selectedAddress += 16;
+				if (ctx.selectedAddress + 16 < ctx.fileSize) ctx.selectedAddress += 16;
 				break;
 			case 'a':
-				if (selectedAddress > 0) selectedAddress--;
+				if (ctx.selectedAddress > 0) ctx.selectedAddress--;
 				break;
 			case 'd':
-				if (selectedAddress + 1 < fileSize) selectedAddress++;
+				if (ctx.selectedAddress + 1 < ctx.fileSize) ctx.selectedAddress++;
 				break;
 			case 'e':
-				renderScreen(screenAddress, selectedAddress, 1, buffer, fileSize, filename);
+				renderScreen(&ctx, 1);
 				int value = inputByte();
-				if (value >= 0) buffer[selectedAddress] = value;
+				if (value >= 0) ctx.buffer[ctx.selectedAddress] = value;
 				else {
 					printf("%sInvalid value. Press Enter to continue.%s", LRED, RESET);
 					waitForEnter();
 				}
 				break;
 			case 'c':
-				renderScreen(screenAddress, selectedAddress, 2, buffer, fileSize, filename);
-				buffer[selectedAddress] = getch();
+				renderScreen(&ctx, 2);
+				ctx.buffer[ctx.selectedAddress] = getch();
 				break;
 			case 'H':
 				system("clear");
@@ -266,11 +278,11 @@ int main(int argc, char* argv[]) {
 				{
 					char input;
 					while (1) {
-						renderScreen(screenAddress, selectedAddress, 4, buffer, fileSize, filename);
+						renderScreen(&ctx, 4);
 						input = getch();
 						if (input == 27) break; // if esc is pressed
-						buffer[selectedAddress] = input;
-						if (selectedAddress != fileSize - 1) selectedAddress++;
+						ctx.buffer[ctx.selectedAddress] = input;
+						if (ctx.selectedAddress != ctx.fileSize - 1) ctx.selectedAddress++;
 					}
 				}
 				break;
@@ -278,11 +290,11 @@ int main(int argc, char* argv[]) {
 				{
 					int input;
 					while (1) {
-						renderScreen(screenAddress, selectedAddress, 3, buffer, fileSize, filename);
+						renderScreen(&ctx, 3);
 						input = inputByte();
 						if (0 <= input && input <= 255) {
-							buffer[selectedAddress] = input;
-							if (selectedAddress != fileSize - 1) selectedAddress++;
+							ctx.buffer[ctx.selectedAddress] = input;
+							if (ctx.selectedAddress != ctx.fileSize - 1) ctx.selectedAddress++;
 						} else if (input == -27) break; // if esc is pressed
 						else {
 							printf("%sInvalid value. Press Enter to continue.%s", LRED, RESET);
@@ -294,12 +306,12 @@ int main(int argc, char* argv[]) {
 				break;
 		}
 
-		while (screenAddress + (LINES_PER_SCREEN - 1) * 16 - 1  < selectedAddress) screenAddress += 16;
-		while (screenAddress > selectedAddress - 16) screenAddress -= 16;
+		while (ctx.screenAddress + (LINES_PER_SCREEN - 1) * 16 - 1  < ctx.selectedAddress) ctx.screenAddress += 16;
+		while (ctx.screenAddress > ctx.selectedAddress - 16) ctx.screenAddress -= 16;
 
 	}
 
-	fclose(fptr);
+	fclose(ctx.fptr);
 	printf("\n");
 	return 0;
 }
