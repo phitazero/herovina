@@ -223,6 +223,14 @@ int main(int argc, char* argv[]) {
 					waitForEnter();
 				}
 			} else if (command == 'r') {
+				fclose(ctx.fptr);
+				ctx.fptr = fopen(ctx.filename, "r+b");
+
+				if (ctx.fptr == NULL) {
+					printf("%sError while opening file '%s'.%s\n", LRED, ctx.filename, RESET);
+					return 1;
+				}
+
 				fseek(ctx.fptr, 0, SEEK_END);
 				ctx.fileSize = ftell(ctx.fptr);
 				fseek(ctx.fptr, 0, SEEK_SET);
