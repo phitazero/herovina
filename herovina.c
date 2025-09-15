@@ -144,7 +144,7 @@ void printHelp() {
 	printf(":q - quit\n");
 	printf(":w - save to file\n");
 	printf(":r - reload file\n");
-	printf(":s - toggle ASCII panel\n")
+	printf(":s - toggle ASCII panel\n");
 }
 
 int main(int argc, char* argv[]) {
